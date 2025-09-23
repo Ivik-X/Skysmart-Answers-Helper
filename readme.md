@@ -20,8 +20,8 @@
 
 1. **Скачайте проект**
    ```bash
-   git clone https://github.com/yourusername/skysmart-extension.git
-   cd skysmart-extension
+   git clone [https://github.com/yourusername/skysmart-extension.git](https://github.com/Ivik-X/Skysmart-Answers-Helper.git)
+   cd Skysmart-Answers-Helper
    ```
 
 2. **Откройте Chrome и перейдите к расширениям**
