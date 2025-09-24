@@ -1,5 +1,5 @@
 (async function() {
-  // Стили для улучшенного дизайна
+  // Обновленные стили с кнопкой копирования
   const styles = `
     <style>
       #skysmartAnswersBox {
@@ -52,6 +52,9 @@
       }
 
       #skysmartAnswersBox .answer-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         padding: 8px 12px;
         margin: 5px 0;
         background: white;
@@ -65,6 +68,34 @@
       #skysmartAnswersBox .answer-item:hover {
         transform: translateX(5px);
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+      }
+
+      #skysmartAnswersBox .answer-text {
+        flex: 1;
+        margin-right: 10px;
+        word-wrap: break-word;
+      }
+
+      #skysmartAnswersBox .copy-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+        white-space: nowrap;
+        min-width: 60px;
+      }
+
+      #skysmartAnswersBox .copy-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+      }
+
+      #skysmartAnswersBox .copy-btn.copied {
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
       }
 
       #skysmartAnswersBox .change-task-btn {
@@ -158,7 +189,7 @@
         border: 2px solid #e0e0e0;
         border-radius: 8px;
         font-size: 16px;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         transition: border-color 0.3s;
         box-sizing: border-box;
       }
@@ -166,6 +197,12 @@
       #roomInputModal input:focus {
         outline: none;
         border-color: #667eea;
+      }
+
+      #roomInputModal .input-hint {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 15px;
       }
 
       #roomInputModal .modal-buttons {
@@ -203,6 +240,33 @@
         background: #e0e0e0;
       }
 
+      /* Уведомление о копировании */
+      .copy-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 184, 148, 0.3);
+        z-index: 100001;
+        animation: slideInNotification 0.3s ease-out;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      @keyframes slideInNotification {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
       ::-webkit-scrollbar {
         width: 6px;
       }
@@ -231,6 +295,90 @@
     document.body.appendChild(styleElement);
   }
 
+  // Функция для копирования текста в буфер обмена
+  async function copyToClipboard(text, buttonElement) {
+    try {
+      await navigator.clipboard.writeText(text);
+      
+      // Меняем текст и стиль кнопки
+      const originalText = buttonElement.textContent;
+      buttonElement.textContent = '✓ Скопировано';
+      buttonElement.classList.add('copied');
+      
+      // Показываем уведомление
+      showCopyNotification();
+      
+      // Возвращаем исходный текст через 2 секунды
+      setTimeout(() => {
+        buttonElement.textContent = originalText;
+        buttonElement.classList.remove('copied');
+      }, 2000);
+      
+      return true;
+    } catch (err) {
+      console.error('Ошибка копирования:', err);
+      
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        document.execCommand('copy');
+        buttonElement.textContent = '✓ Скопировано';
+        buttonElement.classList.add('copied');
+        showCopyNotification();
+        
+        setTimeout(() => {
+          buttonElement.textContent = '📋';
+          buttonElement.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Fallback копирования не сработал:', err);
+      } finally {
+        document.body.removeChild(textArea);
+      }
+    }
+  }
+
+  // Функция для показа уведомления о копировании
+  function showCopyNotification() {
+    // Удаляем старое уведомление, если есть
+    const oldNotification = document.querySelector('.copy-notification');
+    if (oldNotification) {
+      oldNotification.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification';
+    notification.textContent = '✓ Ответ скопирован в буфер обмена';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.animation = 'slideInNotification 0.3s ease-out reverse';
+      setTimeout(() => notification.remove(), 300);
+    }, 2000);
+  }
+
+  // Функция для извлечения кода из URL или возврата самого значения
+  function extractRoomCode(input) {
+    // Проверяем, является ли это URL Skysmart
+    const urlPattern = /https?:\/\/edu\.skysmart\.ru\/student\/task\/([a-zA-Z0-9]+)/;
+    const match = input.match(urlPattern);
+    
+    if (match) {
+      // Если это URL, извлекаем код
+      return match[1];
+    } else {
+      // Если это не URL, возвращаем как есть (предполагаем, что это уже код)
+      return input;
+    }
+  }
+
   // Функция для показа модального окна ввода кода
   function showRoomInputModal(callback) {
     // Удаляем старое модальное окно, если есть
@@ -241,13 +389,16 @@
     modal.id = 'roomInputModal';
     modal.innerHTML = `
       <div class="modal-content">
-        <h3>🔑 Введите код задания</h3>
+        <h3>🔑 Введите код или ссылку на задание</h3>
         <input 
           id="roomInputField" 
           type="text" 
-          placeholder="Например: abc123xyz"
+          placeholder="lehavuvoka или https://edu.skysmart.ru/student/task/lehavuvoka/start"
           autofocus
         >
+        <div class="input-hint">
+          💡 Можно вставить код задания или полную ссылку
+        </div>
         <div class="modal-buttons">
           <button class="save-btn" id="roomSaveBtn">Подтвердить</button>
           <button class="cancel-btn" id="roomCancelBtn">Отмена</button>
@@ -267,9 +418,17 @@
     const saveHandler = () => {
       const value = input.value.trim();
       if (value) {
-        localStorage.setItem('skysmart_roomName', value);
-        modal.remove();
-        if (callback) callback(value);
+        // Извлекаем код из URL или используем значение как есть
+        const roomCode = extractRoomCode(value);
+        
+        if (roomCode) {
+          localStorage.setItem('skysmart_roomName', roomCode);
+          modal.remove();
+          if (callback) callback(roomCode);
+        } else {
+          input.style.borderColor = '#e74c3c';
+          input.placeholder = 'Неверный формат кода или ссылки!';
+        }
       } else {
         input.style.borderColor = '#e74c3c';
         input.placeholder = 'Поле не может быть пустым!';
@@ -351,6 +510,8 @@
             <h3>📚 Помощник Skysmart</h3>
             <div class="no-answers">
               Откройте задание для просмотра ответов
+              <br><br>
+              <small>Текущий код: ${roomName}</small>
             </div>
             <button class="change-task-btn" id="changeTaskBtn">
               🔄 Сменить задание
@@ -372,6 +533,8 @@
           <h3>📚 Помощник Skysmart</h3>
           <div class="no-answers">
             ⏳ Загрузка ответов...
+            <br><br>
+            <small>Код: ${roomName}</small>
           </div>
         </div>
       `;
@@ -393,6 +556,8 @@
             <h3>📚 Помощник Skysmart</h3>
             <div class="error-message">
               ⚠️ Ответы не найдены для задания ${stepNumber}
+              <br><br>
+              <small>Код: ${roomName}</small>
             </div>
             <button class="change-task-btn" id="changeTaskBtn">
               🔄 Сменить задание
@@ -410,14 +575,17 @@
 
       const answers = answersArray[index].answers;
 
-      // Отображаем ответы
+      // Отображаем ответы с кнопками копирования
       div.innerHTML = `
         <div class="content-wrapper">
           <h3>📚 Ответы (Задание ${stepNumber})</h3>
           <div class="answers-list">
-            ${answers.map(answer => `
+            ${answers.map((answer, idx) => `
               <div class="answer-item">
-                ✅ ${answer}
+                <span class="answer-text">${answer}</span>
+                <button class="copy-btn" data-answer="${answer.replace(/"/g, '&quot;')}" data-index="${idx}">
+                  📋
+                </button>
               </div>
             `).join('')}
           </div>
@@ -426,6 +594,15 @@
           </button>
         </div>
       `;
+
+      // Добавляем обработчики для кнопок копирования
+      const copyButtons = div.querySelectorAll('.copy-btn');
+      copyButtons.forEach(button => {
+        button.onclick = function() {
+          const answer = this.getAttribute('data-answer');
+          copyToClipboard(answer, this);
+        };
+      });
 
       document.getElementById('changeTaskBtn').onclick = () => {
         showRoomInputModal(() => {
@@ -437,11 +614,14 @@
       console.error('Ошибка при получении ответов:', e);
       
       const div = createAnswersBox();
+      const roomName = localStorage.getItem('skysmart_roomName');
+      
       div.innerHTML = `
         <div class="content-wrapper">
           <h3>📚 Помощник Skysmart</h3>
           <div class="error-message">
             ❌ Ошибка при загрузке ответов
+            ${roomName ? `<br><br><small>Код: ${roomName}</small>` : ''}
           </div>
           <button class="change-task-btn" id="changeTaskBtn">
             🔄 Сменить задание
